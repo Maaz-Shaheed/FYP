@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 240 33% 99%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 271 81% 56%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 188 85% 53%;
+    --secondary-foreground: 240 10% 3.9%;
+    --muted: 240 20% 96%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 271 81% 56%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 13% 91%;
+    --input: 240 13% 91%;
+    --ring: 271 81% 56%;
+    --chart-1: 271 81% 56%;
+    --chart-2: 188 85% 53%;
+    --chart-3: 329 81% 66%;
+    --chart-4: 42 96% 57%;
+    --chart-5: 271 81% 56%;
+    --radius: 1rem;
+  }
+  .dark {
+    --background: 240 20% 8%;
+    --foreground: 0 0% 98%;
+    --card: 240 20% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 20% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 271 81% 66%;
+    --primary-foreground: 240 20% 8%;
+    --secondary: 188 85% 63%;
+    --secondary-foreground: 240 20% 8%;
+    --muted: 240 15% 18%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 271 81% 66%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 15% 18%;
+    --input: 240 15% 18%;
+    --ring: 271 81% 66%;
+    --chart-1: 271 81% 66%;
+    --chart-2: 188 85% 63%;
+    --chart-3: 329 81% 66%;
+    --chart-4: 42 96% 67%;
+    --chart-5: 271 81% 66%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image: radial-gradient(at 0% 0%, hsl(271, 40%, 95%) 0px, transparent 50%),
+                      radial-gradient(at 100% 0%, hsl(188, 40%, 95%) 0px, transparent 50%),
+                      radial-gradient(at 100% 100%, hsl(329, 40%, 95%) 0px, transparent 50%),
+                      radial-gradient(at 0% 100%, hsl(271, 40%, 95%) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+  .dark body {
+    background-image: radial-gradient(at 0% 0%, hsl(271, 40%, 12%) 0px, transparent 50%),
+                      radial-gradient(at 100% 0%, hsl(188, 40%, 12%) 0px, transparent 50%),
+                      radial-gradient(at 100% 100%, hsl(329, 40%, 12%) 0px, transparent 50%),
+                      radial-gradient(at 0% 100%, hsl(271, 40%, 12%) 0px, transparent 50%);
+  }
+}
+
+@layer utilities {
+  .gradient {
+    @apply bg-primary;
+  }
+  .gradient-title {
+    @apply text-foreground font-extrabold tracking-tight;
+  }
+  .gradient-subtle {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(6, 182, 212, 0.1) 50%, rgba(236, 72, 153, 0.1) 100%);
+  }
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  .dark .glass {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .glow {
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3), 0 0 40px rgba(6, 182, 212, 0.2);
+  }
+}
+
+.hero-image-wrapper {
+  perspective: 1000px;
+}
+
+.hero-image {
+  transform: rotateX(15deg) scale(1);
+  transition: transform 0.5s ease-out;
+  will-change: transform;
+  filter: drop-shadow(0 20px 40px rgba(168, 85, 247, 0.3));
+}
+
+.hero-image.scrolled {
+  transform: rotateX(0deg) scale(1) translateY(40px);
+}
+
+.grid-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    linear-gradient(to right, rgba(168, 85, 247, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.grid-background::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.05), transparent 70%);
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 40px rgba(168, 85, 247, 0.5);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* Wobble animation for active speaker */
+@keyframes wobble {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  15% {
+    transform: translateX(-2px) rotate(-1deg);
+  }
+  30% {
+    transform: translateX(2px) rotate(1deg);
+  }
+  45% {
+    transform: translateX(-2px) rotate(-1deg);
+  }
+  60% {
+    transform: translateX(2px) rotate(1deg);
+  }
+  75% {
+    transform: translateX(-1px) rotate(-0.5deg);
+  }
+}
+
+.wobble {
+  animation: wobble 0.8s ease-in-out infinite;
+}
+
+.goodeffect {
+  animation: wobble 0.8s ease-in-out infinite;
+  transform-origin: center;
+}
