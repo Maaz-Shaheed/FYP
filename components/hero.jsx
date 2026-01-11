@@ -23,12 +23,12 @@ const HeroSection = () => {
           {/* Main headline */}
           <div className="space-y-6 mb-10">
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-foreground leading-[1.1] tracking-tight">
-              Forge Your Dream
+              Prepare Smarter. 
               <br />
-              <span className="inline-block mt-2">Career Today</span>
+              <span className="inline-block mt-2">Get Hired Faster.</span>
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
-              AI-powered platform to build resumes, create cover letters, and ace interviews
+              PrepMate AI helps you build ATS-friendly resumes, generate smart cover letters, and practice AI-powered mock interviews — all in one place.
             </p>
           </div>
 
@@ -39,7 +39,7 @@ const HeroSection = () => {
                 size="lg" 
                 className="px-8 py-6 text-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xl hover:shadow-2xl hover:scale-105 font-bold group"
               >
-                Get Started Free
+                Build My Resume →
                 <Rocket className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
@@ -49,7 +49,7 @@ const HeroSection = () => {
                 variant="outline" 
                 className="px-8 py-6 text-lg border-2 glass hover:bg-accent/50 font-semibold"
               >
-                Try Interview Prep
+                Start Interview Prep →
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </Link>

@@ -1,13 +1,13 @@
-# AI-Coach Project (Deployed on Vercel)
+# AI Career Coach
+
+An AI-powered career coaching application built with Next.js 15, featuring resume building, interview preparation, and career guidance.
 
 ## 📦 Clone the Repository
 
-First, clone the repository to your local machine:
-
 ```bash
-git clone https://github.com/mubashirsidiki/ai-coach.git
-cd ai-coach
-````
+git clone https://github.com/Maaz-Shaheed/FYP.git
+cd FYP
+```
 
 ## 🛠️ Setup Instructions
 
@@ -16,27 +16,38 @@ cd ai-coach
 Create a `.env` file in the root directory and add the following variables:
 
 ```env
-# Clerk Configuration
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-CLERK_SECRET_KEY=
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/onboarding
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/onboarding
-GEMINI_API_KEY=
 
-# Supabase Configuration
-POSTGRES_PRISMA_URL=
-POSTGRES_URL_NON_POOLING=
-DATABASE_URL=
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-NODE_ENV=production
+# OpenAI AI
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-5-nano
+OPENAI_REALTIME_MODEL=gpt-realtime-mini
+OPENAI_REALTIME_VOICE=cedar
+INTERVIEW_TIME_LIMIT_SECONDS=120
+
+# Supabase Database
+POSTGRES_PRISMA_URL=postgresql://postgres.project-ref:password@aws-region.pooler.supabase.com:5432/postgres
+POSTGRES_URL_NON_POOLING=postgresql://postgres.project-ref:password@aws-region.pooler.supabase.com:5432/postgres?sslmode=require
+
+# Supabase API
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# Environment
+NODE_ENV=development
 ```
 
-➡️ For the latest environment variable values, visit:
-[Google Sheet – Environment Variables](https://docs.google.com/spreadsheets/d/10w5EQ52yH5jLEtKI3nJlxiKlwBaxrBGY7X6TL7ga-IA/edit?usp=sharing)
+**Get your credentials:**
+- **Clerk:** [Clerk Dashboard](https://dashboard.clerk.com/)
+- **Supabase:** [Supabase Dashboard](https://supabase.com/dashboard) → Settings → Database
+- **OpenAI:** [OpenAI Platform](https://platform.openai.com/api-keys)
 
 ### 2. Installation
 
@@ -48,21 +59,21 @@ npm install
 
 ### 3. Database Setup
 
-Initialize your database with Prisma:
+Push the Prisma schema to your database:
 
 ```bash
-npx prisma generate
-npx prisma migrate dev --name init
-npx prisma db push    
+npx prisma db push
 ```
 
 ### 4. Development Server
 
-Run the development server with:
+Run the development server:
 
 ```bash
 npm run dev
 ```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 5. Production
 
@@ -75,12 +86,25 @@ npm run start
 
 ## 🧱 Tech Stack
 
-* [Next.js 15](https://nextjs.org/) with Turbopack
-* [Neon DB](https://neon.tech/) for PostgreSQL
-* [Tailwind CSS](https://tailwindcss.com/) for styling
-* [Prisma](https://www.prisma.io/) as ORM
-* [Inngest](https://www.inngest.com/) for background jobs
-* [Shadcn UI](https://ui.shadcn.com/) for components
-* [Clerk](https://clerk.com/) for authentication
+| Technology | Description |
+|------------|-------------|
+| [Next.js 15](https://nextjs.org/) | React framework with Turbopack |
+| [Supabase](https://supabase.com/) | PostgreSQL database hosting |
+| [Prisma](https://www.prisma.io/) | ORM for database operations |
+| [Clerk](https://clerk.com/) | Authentication |
+| [OpenAI](https://platform.openai.com/) | AI API for coaching |
+| [Tailwind CSS](https://tailwindcss.com/) | Styling |
+| [Shadcn UI](https://ui.shadcn.com/) | UI components |
 
-```
+## 📝 Features
+
+- User authentication with Clerk
+- AI-powered career coaching
+- Resume builder with ATS scoring
+- Cover letter generator
+- Interview preparation assessments
+- Industry insights and salary data
+
+## 📄 License
+
+See [LICENSE](LICENSE) file for details.

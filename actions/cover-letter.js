@@ -2,10 +2,10 @@
 
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || "gemini-2.0-flash" });
+const openai = new OpenAI();
+const modelName = process.env.OPENAI_MODEL || "gpt-5-nano";
 
 export async function generateCoverLetter(data) {
   const { userId } = await auth();
@@ -44,8 +44,11 @@ export async function generateCoverLetter(data) {
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const content = result.response.text().trim();
+    const response = await openai.responses.create({
+      model: modelName,
+      input: prompt
+    });
+    const content = response.output_text.trim();
 
     const coverLetter = await db.coverLetter.create({
       data: {

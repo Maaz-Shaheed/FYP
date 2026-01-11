@@ -12,10 +12,12 @@ import {
   Award,
   Clock,
   Rocket,
+  TrendingUp,
 } from "lucide-react";
 import HeroSection from "@/components/hero";
+import { currentUser } from "@clerk/nextjs/server";
 
-export default function LandingPage() {
+async function LandingPageContent() {
   return (
     <>
       <div className="grid-background"></div>
@@ -29,10 +31,10 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-black text-foreground mb-4">
-                Everything You Need to Succeed
+                All your career tools in one place
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Three powerful tools that work together to transform your job search
+                PrepMate AI gives you simple, AI-powered tools to move from searching to getting hired.
               </p>
             </div>
 
@@ -42,9 +44,9 @@ export default function LandingPage() {
                   <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <FileText className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Smart Resume Builder</h3>
+                  <h3 className="text-xl font-bold mb-2">Resume Intelligence</h3>
                   <p className="text-sm text-muted-foreground">
-                    Create ATS-optimized resumes tailored to each job posting with AI-powered insights.
+                    Build clear, ATS-friendly resumes that highlight your skills and projects for each role.
                   </p>
                 </CardContent>
               </Card>
@@ -54,9 +56,9 @@ export default function LandingPage() {
                   <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <MessageSquare className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Cover Letter Generator</h3>
+                  <h3 className="text-xl font-bold mb-2">Application Writer</h3>
                   <p className="text-sm text-muted-foreground">
-                    Generate personalized cover letters that connect your experience to employer needs.
+                    Turn your experience into short, clear cover letters tailored to each job description.
                   </p>
                 </CardContent>
               </Card>
@@ -66,9 +68,9 @@ export default function LandingPage() {
                   <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <BrainCircuit className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Interview Prep</h3>
+                  <h3 className="text-xl font-bold mb-2">Interview Studio</h3>
                   <p className="text-sm text-muted-foreground">
-                    Practice with AI-powered interviews and job-specific questions to build confidence.
+                    Practice AI-powered mock interviews and get guidance on skills, roles, and next steps.
                   </p>
                 </CardContent>
               </Card>
@@ -82,17 +84,17 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
             {[
-              { number: "10K+", label: "Users" },
-              { number: "50K+", label: "Resumes" },
-              { number: "95%", label: "Success Rate" },
-              { number: "24/7", label: "AI Support" },
+              { number: "Students", label: "Career-ready preparation with structured guidance for internships, resumes, and entry-level roles." },
+              { number: "Fresh Graduates", label: "Convert academics, projects, and internships into compelling, industry-aligned applications." },
+              { number: "Job Seekers", label: "Navigate career transitions with intelligent resume optimization and interview preparation." },
+              { number: "Global Professionals", label: "Create internationally competitive resumes and prepare for global and remote opportunities." },
             ].map((stat, index) => (
               <div
                 key={index}
-                className="glass rounded-2xl p-6 text-center border-2 border-primary/20"
+                className="glass rounded-2xl p-6 text-left border-2 border-primary/20"
               >
-                <h3 className="text-4xl font-black text-foreground mb-2">{stat.number}</h3>
-                <p className="text-sm text-muted-foreground font-medium">{stat.label}</p>
+                <h3 className="text-2xl font-bold text-foreground mb-3">{stat.number}</h3>
+                <p className="text-sm text-foreground/80 leading-relaxed">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -107,10 +109,10 @@ export default function LandingPage() {
             
             <div className="flex flex-col items-center justify-center space-y-6 text-center relative z-10">
               <h2 className="text-4xl md:text-5xl font-black tracking-tight text-primary-foreground">
-                Ready to Transform Your Career?
+                Ready to start with PrepMate AI?
               </h2>
               <p className="mx-auto max-w-2xl text-primary-foreground/90 text-lg">
-                Join thousands of professionals who've already transformed their job search with CareerForge.
+                Join students and job seekers using PrepMate AI to prepare smarter, apply with confidence, and move closer to the role they want.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                 <Link href="/dashboard">
@@ -118,7 +120,7 @@ export default function LandingPage() {
                     size="lg"
                     className="h-12 px-8 bg-background text-foreground hover:bg-background/90 transition-all shadow-xl hover:shadow-2xl hover:scale-105 font-bold"
                   >
-                    Get Started Free
+                    Generate Cover Letter →
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
@@ -140,4 +142,110 @@ export default function LandingPage() {
       </section>
     </>
   );
+}
+
+async function DashboardContent({ firstName }) {
+  return (
+    <div className="container mx-auto px-4 md:px-6 py-24">
+      <div className="max-w-6xl mx-auto">
+        {/* Greeting */}
+        <div className="mb-12">
+          <h1 className="text-4xl md:text-5xl font-black text-foreground mb-4">
+            Hi {firstName} 👋
+          </h1>
+          <p className="text-xl text-muted-foreground">
+            Hope you're doing great today.
+            <br />
+            Let's push your career forward with PrepMate AI.
+          </p>
+        </div>
+
+        {/* Action Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="glass border-2 border-primary/20 hover:border-primary/50 transition-all group">
+            <CardContent className="pt-6 pb-6">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <FileText className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Resume Lab</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Craft, refine, and optimize your resume for real recruiters and ATS systems.
+              </p>
+              <Link href="/resume">
+                <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  Work on My Resume →
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="glass border-2 border-primary/20 hover:border-primary/50 transition-all group">
+            <CardContent className="pt-6 pb-6">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <MessageSquare className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Cover Letter Studio</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Generate focused, role-specific cover letters that actually get read.
+              </p>
+              <Link href="/ai-cover-letter">
+                <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  Create Cover Letter →
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="glass border-2 border-primary/20 hover:border-primary/50 transition-all group">
+            <CardContent className="pt-6 pb-6">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <BrainCircuit className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Interview Arena</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Practice interviews, improve answers, and build confidence step by step.
+              </p>
+              <Link href="/interview">
+                <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  Start Interview Prep →
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="glass border-2 border-primary/20 hover:border-primary/50 transition-all group">
+            <CardContent className="pt-6 pb-6">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <TrendingUp className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Industry Insights</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Understand roles, required skills, and market demand before you apply.
+              </p>
+              <Link href="/dashboard">
+                <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  Explore Insights →
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default async function LandingPage() {
+  const user = await currentUser();
+  
+  if (user) {
+    const firstName = user.firstName || "there";
+    return <DashboardContent firstName={firstName} />;
+  }
+
+  return <LandingPageContent />;
 }

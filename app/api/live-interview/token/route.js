@@ -22,8 +22,8 @@ export async function POST(request) {
     // Get model from environment variable, fallback to default
     const model = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime-mini";
     
-    // Get interview time limit from environment variable (in seconds), default to 30
-    const interviewTimeLimit = parseInt(process.env.INTERVIEW_TIME_LIMIT_SECONDS || "30", 10);
+    // Get interview time limit from environment variable (in seconds), default to 120 (2 minutes)
+    const interviewTimeLimit = parseInt(process.env.INTERVIEW_TIME_LIMIT_SECONDS || "120", 10);
     
     // Get voice model from environment variable, default to "cedar"
     const voice = process.env.OPENAI_REALTIME_VOICE || "cedar";

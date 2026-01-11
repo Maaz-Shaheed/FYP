@@ -1,11 +1,11 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { db } from "@/lib/prisma";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || "gemini-2.0-flash" });
+const openai = new OpenAI();
+const modelName = process.env.OPENAI_MODEL || "gpt-5-nano";
 
 /**
  * Generate 5 MCQs based on a job description
@@ -69,10 +69,12 @@ export async function generateJobBasedQuiz(jobDescription, jobTitle, companyName
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
-    
+    const response = await openai.responses.create({
+      model: modelName,
+      input: prompt
+    });
+    const text = response.output_text;
+
     if (!text) {
       throw new Error("Empty response from AI");
     }
@@ -134,7 +136,7 @@ export async function generateJobBasedQuiz(jobDescription, jobTitle, companyName
     
     // Return more specific error messages
     if (error.message.includes("API key")) {
-      throw new Error("API configuration error. Please check your Gemini API key.");
+      throw new Error("API configuration error. Please check your OpenAI API key.");
     }
     
     if (error.message.includes("parse") || error.message.includes("JSON")) {
@@ -187,56 +189,65 @@ export async function saveLiveInterviewResult(transcript, questionCount, jobTitl
       .join("\n\n");
 
     const analysisPrompt = `
-You are an expert interview analyst. Analyze this complete live interview conversation for the position of ${jobTitle} at ${jobCompany}.
+You are an interview coach analyzing a practice interview. Be FAIR, REALISTIC, and HONEST.
+
+POSITION: ${jobTitle} at ${jobCompany}
 
 JOB DESCRIPTION:
-${jobDescription.substring(0, 3000)}
+${jobDescription.substring(0, 2000)}
 
-COMPLETE INTERVIEW TRANSCRIPT:
+INTERVIEW TRANSCRIPT:
 ${fullTranscript}
 
-INTERVIEW METADATA:
-- Total Questions Asked: ${questionCount}
-- Total Conversation Turns: ${transcript.length}
-- Interview Type: Live Real-time Interview
+METADATA:
+- Questions asked: ${questionCount}
+- Conversation turns: ${transcript.length}
 
-ANALYSIS REQUIREMENTS:
-Provide a comprehensive, detailed analysis in valid JSON format ONLY. Do not include any text outside the JSON object.
+SCORING GUIDELINES (Be REALISTIC - this simulates a real job interview!):
+- 80-100: Excellent - strong answers, demonstrates required skills and experience
+- 60-79: Good - some gaps but shows competence and potential
+- 40-59: Fair - basic understanding but significant room for improvement
+- 20-39: Poor - lacks fundamental knowledge or skills for the role
+- Below 20: Very Poor - zero relevant knowledge, not qualified for the position
 
-Required JSON structure:
+CRITICAL SCORING RULES:
+1. If candidate repeatedly says "I don't know", "no experience", or gives zero-effort answers: score 20-35%
+2. If candidate shows NONE of the required skills from the job description: score 20-40%
+3. If candidate gives vague, non-specific answers: score 30-50%
+4. Only give 50+ if candidate demonstrates SOME relevant knowledge or transferrable skills
+5. Only give 70+ if candidate clearly has the required experience
+
+This is a PRACTICE interview but the purpose is to assess READINESS. Giving high scores for unqualified candidates is misleading and unhelpful.
+
+Return JSON (ONLY valid JSON, no markdown):
 {
   "overallScore": <number 0-100>,
   "communicationScore": <number 0-100>,
   "technicalScore": <number 0-100>,
   "responseQuality": <number 0-100>,
-  "strengths": [<array of 3-5 specific strengths with examples>],
-  "weaknesses": [<array of 3-5 specific weaknesses with examples>],
-  "improvementTip": "<2-3 sentences of actionable, specific advice>",
-  "feedback": "<detailed paragraph (4-5 sentences) analyzing overall performance, communication style, technical knowledge, and areas for growth>",
-  "questionAnalysis": [<array of objects, one per question, with: {"question": "...", "answer": "...", "score": 0-100, "feedback": "..."}>]
+  "strengths": ["specific strength 1", "specific strength 2"],
+  "weaknesses": ["area for improvement 1", "area for improvement 2"],
+  "improvementTip": "One specific, actionable thing to practice (2 sentences max)",
+  "feedback": "Brief summary of performance (2-3 sentences, honest and constructive tone)",
+  "questionAnalysis": [
+    {"question": "first question text or 'Question 1'", "answer": "candidate's answer summary", "score": 0-100, "feedback": "specific feedback on this answer"}
+  ]
 }
-
-EVALUATION CRITERIA:
-1. Communication Skills (30%): Clarity, articulation, confidence, active listening
-2. Technical Knowledge (30%): Relevance to job requirements, depth of understanding
-3. Response Quality (25%): Completeness, structure, examples provided
-4. Professionalism (15%): Tone, engagement, follow-up questions
-
-Be specific and reference actual quotes from the transcript in your analysis. Score based on actual performance, not leniency.
-
-Return ONLY valid JSON, no additional text or markdown.
     `.trim();
 
-    // Generate analysis using Gemini - NO FALLBACKS
+    // Generate analysis using OpenAI
     let analysis;
     let retries = 0;
     const maxRetries = 3;
     
     while (retries < maxRetries) {
       try {
-        const result = await model.generateContent(analysisPrompt);
-        const text = result.response.text();
-        
+        const result = await openai.responses.create({
+          model: modelName,
+          input: analysisPrompt
+        });
+        const text = result.output_text;
+
         // Clean up response - remove markdown code blocks
         let cleanedText = text
           .replace(/```json\n?/g, "")
@@ -376,8 +387,11 @@ export async function saveJobQuizResult(questionResults, score, jobTitle, jobCom
       `;
 
       try {
-        const tipResult = await model.generateContent(prompt);
-        improvementTip = tipResult.response.text().trim();
+        const tipResponse = await openai.responses.create({
+          model: modelName,
+          input: prompt
+        });
+        improvementTip = tipResponse.output_text.trim();
       } catch (error) {
         console.error("Error generating improvement tip:", error);
         // Continue without tip if generation fails

@@ -2,13 +2,13 @@
 
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { revalidatePath } from "next/cache";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || "gemini-2.0-flash" });
+const openai = new OpenAI();
+const modelName = process.env.OPENAI_MODEL || "gpt-5-nano";
 
-export async function saveResume(content) {
+export async function saveResume(content, theme = "professional") {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -25,10 +25,12 @@ export async function saveResume(content) {
       },
       update: {
         content,
+        theme,
       },
       create: {
         userId: user.id,
         content,
+        theme,
       },
     });
 
@@ -87,9 +89,11 @@ export async function improveWithAI({ current, type }) {
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const improvedContent = response.text().trim();
+    const response = await openai.responses.create({
+      model: modelName,
+      input: prompt
+    });
+    const improvedContent = response.output_text.trim();
     return improvedContent;
   } catch (error) {
     console.error("Error improving content:", error);

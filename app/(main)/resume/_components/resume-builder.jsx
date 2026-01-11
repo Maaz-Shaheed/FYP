@@ -10,6 +10,7 @@ import {
   Loader2,
   Monitor,
   Save,
+  Palette,
 } from "lucide-react";
 import { toast } from "sonner";
 import MDEditor from "@uiw/react-md-editor";
@@ -17,17 +18,21 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { saveResume } from "@/actions/resume";
+import { saveResume, getResume } from "@/actions/resume";
 import { EntryForm } from "./entry-form";
+import { ThemeSelector, ThemeRenderer } from "./resume-themes";
+import { parseResumeData } from "@/app/lib/resume-parser";
 import useFetch from "@/hooks/use-fetch";
 import { useUser } from "@clerk/nextjs";
 import { entriesToMarkdown } from "@/app/lib/helper";
 import { resumeSchema } from "@/app/lib/schema";
 import html2pdf from "html2pdf.js/dist/html2pdf.min.js";
 
-export default function ResumeBuilder({ initialContent }) {
+export default function ResumeBuilder({ initialContent, initialTheme }) {
   const [activeTab, setActiveTab] = useState("edit");
   const [previewContent, setPreviewContent] = useState(initialContent);
+  const [selectedTheme, setSelectedTheme] = useState(initialTheme || "professional");
+  const [previewMode, setPreviewMode] = useState("markdown"); // "markdown" or "theme"
   const { user } = useUser();
   const [resumeMode, setResumeMode] = useState("preview");
 
@@ -140,10 +145,15 @@ export default function ResumeBuilder({ initialContent }) {
         .trim();
 
       console.log(previewContent, formattedContent);
-      await saveResumeFn(previewContent);
+      await saveResumeFn(formattedContent, selectedTheme);
     } catch (error) {
       console.error("Save error:", error);
     }
+  };
+
+  // Get structured data for theme rendering
+  const getResumeData = () => {
+    return parseResumeData(previewContent, formValues, user?.fullName || user?.firstName || "");
   };
 
   return (
@@ -189,7 +199,8 @@ export default function ResumeBuilder({ initialContent }) {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="edit">Form</TabsTrigger>
-          <TabsTrigger value="preview">Markdown</TabsTrigger>
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="theme">Theme</TabsTrigger>
         </TabsList>
 
         <TabsContent value="edit">
@@ -362,45 +373,70 @@ export default function ResumeBuilder({ initialContent }) {
         </TabsContent>
 
         <TabsContent value="preview">
-          {activeTab === "preview" && (
+          <div className="flex gap-2 mb-4">
             <Button
-              variant="link"
-              type="button"
-              className="mb-2"
-              onClick={() =>
-                setResumeMode(resumeMode === "preview" ? "edit" : "preview")
-              }
+              variant={previewMode === "markdown" ? "default" : "outline"}
+              onClick={() => setPreviewMode("markdown")}
             >
-              {resumeMode === "preview" ? (
-                <>
-                  <Edit className="h-4 w-4" />
-                  Edit Resume
-                </>
-              ) : (
-                <>
-                  <Monitor className="h-4 w-4" />
-                  Show Preview
-                </>
-              )}
+              Markdown Preview
             </Button>
-          )}
+            <Button
+              variant={previewMode === "theme" ? "default" : "outline"}
+              onClick={() => setPreviewMode("theme")}
+            >
+              <Palette className="h-4 w-4 mr-2" />
+              Theme Preview
+            </Button>
+          </div>
 
-          {activeTab === "preview" && resumeMode !== "preview" && (
-            <div className="flex p-3 gap-2 items-center border-2 border-yellow-600 text-yellow-600 rounded mb-2">
-              <AlertTriangle className="h-5 w-5" />
-              <span className="text-sm">
-                You will lose editied markdown if you update the form data.
-              </span>
+          {previewMode === "markdown" ? (
+            <>
+              {activeTab === "preview" && (
+                <Button
+                  variant="link"
+                  type="button"
+                  className="mb-2"
+                  onClick={() =>
+                    setResumeMode(resumeMode === "preview" ? "edit" : "preview")
+                  }
+                >
+                  {resumeMode === "preview" ? (
+                    <>
+                      <Edit className="h-4 w-4" />
+                      Edit Resume
+                    </>
+                  ) : (
+                    <>
+                      <Monitor className="h-4 w-4" />
+                      Show Preview
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {activeTab === "preview" && resumeMode !== "preview" && (
+                <div className="flex p-3 gap-2 items-center border-2 border-yellow-600 text-yellow-600 rounded mb-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  <span className="text-sm">
+                    You will lose editied markdown if you update the form data.
+                  </span>
+                </div>
+              )}
+              <div className="border rounded-lg">
+                <MDEditor
+                  value={previewContent}
+                  onChange={setPreviewContent}
+                  height={800}
+                  preview={resumeMode}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="border rounded-lg bg-gray-50 p-4 overflow-auto" style={{ maxHeight: "800px" }}>
+              <ThemeRenderer theme={selectedTheme} data={getResumeData()} />
             </div>
           )}
-          <div className="border rounded-lg">
-            <MDEditor
-              value={previewContent}
-              onChange={setPreviewContent}
-              height={800}
-              preview={resumeMode}
-            />
-          </div>
+          
           <div className="hidden">
             <div id="resume-pdf">
               <MDEditor.Markdown
@@ -410,6 +446,21 @@ export default function ResumeBuilder({ initialContent }) {
                   color: "black",
                 }}
               />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="theme">
+          <div className="space-y-6">
+            <ThemeSelector
+              selectedTheme={selectedTheme}
+              onThemeChange={setSelectedTheme}
+            />
+            <div className="border rounded-lg bg-gray-50 p-4">
+              <h3 className="text-lg font-medium mb-4">Theme Preview</h3>
+              <div className="overflow-auto" style={{ maxHeight: "600px" }}>
+                <ThemeRenderer theme={selectedTheme} data={getResumeData()} />
+              </div>
             </div>
           </div>
         </TabsContent>

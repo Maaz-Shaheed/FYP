@@ -64,7 +64,7 @@ export function LogoWithText({ className = "" }) {
     <div className={`flex items-center gap-3 ${className}`}>
       <Logo size={40} />
       <span className="gradient-title text-2xl font-black tracking-tight">
-        CareerForge
+        PrepMate AI
       </span>
     </div>
   );

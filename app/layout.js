@@ -9,7 +9,7 @@ import { dark } from "@clerk/themes";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "CareerForge - AI-Powered Career Development Platform",
+  title: "PrepMate AI - AI-Powered Career Development Platform",
   description: "Transform your career with AI-powered resume building, cover letter generation, and interview preparation. Get personalized guidance tailored to your industry.",
 };
 
@@ -37,6 +37,9 @@ export default function RootLayout({ children }) {
 
             <footer className="bg-muted/50 py-12">
               <div className="container mx-auto px-4 text-center text-gray-200">
+                <p className="text-sm text-gray-300">
+                  PrepMate AI – simple, AI-powered career prep for students and job seekers.
+                </p>
               </div>
             </footer>
           </ThemeProvider>

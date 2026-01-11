@@ -2,10 +2,10 @@
 
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || "gemini-2.0-flash" });
+const openai = new OpenAI();
+const modelName = process.env.OPENAI_MODEL || "gpt-5-nano";
 
 export async function generateQuiz(category = "Technical") {
   const { userId } = await auth();
@@ -71,9 +71,11 @@ export async function generateQuiz(category = "Technical") {
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    const response = await openai.responses.create({
+      model: modelName,
+      input: prompt
+    });
+    const text = response.output_text;
     const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
     const quiz = JSON.parse(cleanedText);
 
@@ -127,9 +129,12 @@ export async function saveQuizResult(questions, answers, score, category = "Tech
     `;
 
     try {
-      const tipResult = await model.generateContent(improvementPrompt);
+      const tipResponse = await openai.responses.create({
+        model: modelName,
+        input: improvementPrompt
+      });
 
-      improvementTip = tipResult.response.text().trim();
+      improvementTip = tipResponse.output_text.trim();
       console.log(improvementTip);
     } catch (error) {
       console.error("Error generating improvement tip:", error);

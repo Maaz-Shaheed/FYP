@@ -49,6 +49,7 @@ model Resume {
   userId      String    @unique    // One resume per user
   user        User      @relation(fields: [userId], references: [id])
   content     String    @db.Text // Markdown content
+  theme       String    @default("professional") // professional, creative, modern, minimalist
   atsScore    Float?
   feedback    String?
   createdAt   DateTime  @default(now())

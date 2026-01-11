@@ -17,7 +17,7 @@ export default function LiveInterview({ job, onBack }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState({ bot: false, user: false });
-  const [interviewTimeLimit, setInterviewTimeLimit] = useState(30); // Store for UI display
+  const [interviewTimeLimit, setInterviewTimeLimit] = useState(120); // Store for UI display
   
   const wsRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -32,7 +32,8 @@ export default function LiveInterview({ job, onBack }) {
   const transcriptRef = useRef([]);
   const botIsSpeakingRef = useRef(false); // Track when bot is speaking to prevent feedback
   const audioProcessorRef = useRef(null); // Reference to audio processor for cleanup
-  const interviewTimeLimitRef = useRef(30); // Store interview time limit in seconds (default 30)
+  const recordingAudioContextRef = useRef(null); // Separate audio context for recording at native rate
+  const interviewTimeLimitRef = useRef(120); // Store interview time limit in seconds (default 120)
   const hasActiveResponseRef = useRef(false); // Track if there's an active response to cancel
 
   // Keep transcript ref in sync with state
@@ -116,8 +117,8 @@ export default function LiveInterview({ job, onBack }) {
 
   // Check if we should auto-end based on question count
   useEffect(() => {
-    if (questionCount >= 5 && isConnected) {
-      toast.info("5 questions completed. Ending interview...");
+    if (questionCount >= 3 && isConnected) {
+      toast.info("3 questions completed. Ending interview...");
       setTimeout(() => {
         endInterview();
       }, 2000);
@@ -136,6 +137,9 @@ export default function LiveInterview({ job, onBack }) {
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }
+      if (recordingAudioContextRef.current && recordingAudioContextRef.current.state !== 'closed') {
+        recordingAudioContextRef.current.close();
+      }
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -144,31 +148,35 @@ export default function LiveInterview({ job, onBack }) {
 
   // Play audio chunks
   const playAudioChunk = async (audioData) => {
-    if (!audioContextRef.current || !audioData) {
-      console.warn("⚠️ Cannot play audio: missing context or data");
-      return;
+    // Ensure we have a valid audio context for playback
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: 24000, // OpenAI Realtime API uses 24kHz
+      });
     }
-    
+
+    if (!audioContextRef.current || !audioData) return;
+
     try {
       // Ensure audio context is running
       if (audioContextRef.current.state === 'suspended') {
         await audioContextRef.current.resume();
       }
-      
+
       // Decode base64 audio data (PCM16 at 24kHz)
         const binaryString = atob(audioData);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
         }
-      
+
       // Convert PCM16 to Float32
       const pcm16 = new Int16Array(bytes.buffer);
       const float32 = new Float32Array(pcm16.length);
       for (let i = 0; i < pcm16.length; i++) {
         float32[i] = pcm16[i] / 32768.0;
       }
-      
+
       // Create audio buffer
       const audioBuffer = audioContextRef.current.createBuffer(
         1, // mono
@@ -176,20 +184,19 @@ export default function LiveInterview({ job, onBack }) {
         24000 // 24kHz sample rate
       );
       audioBuffer.getChannelData(0).set(float32);
-      
+
       // Create and play audio source
       const source = audioContextRef.current.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioContextRef.current.destination);
       currentAudioSourceRef.current = source; // Store reference for cancellation
-      
+
       setIsSpeaking(prev => ({ ...prev, bot: true }));
-      
+
       await new Promise((resolve, reject) => {
         source.onended = () => {
           currentAudioSourceRef.current = null;
           setIsSpeaking(prev => ({ ...prev, bot: false }));
-          // Allow immediate interruptions - don't block input
           botIsSpeakingRef.current = false;
           resolve();
         };
@@ -201,14 +208,14 @@ export default function LiveInterview({ job, onBack }) {
         };
         try {
           source.start(0);
-        } catch (startError) {
+        } catch {
           currentAudioSourceRef.current = null;
           botIsSpeakingRef.current = false;
-          reject(startError);
+          reject();
         }
       });
     } catch (error) {
-      console.error("❌ Error playing audio chunk:", error);
+      console.error("Error playing audio chunk:", error);
       botIsSpeakingRef.current = false;
       setIsSpeaking(prev => ({ ...prev, bot: false }));
     }
@@ -253,7 +260,7 @@ export default function LiveInterview({ job, onBack }) {
       
       // Connect to OpenAI Realtime API via WebSocket
       const ws = new WebSocket(
-        `wss://api.openai.com/v1/realtime?model=${model || 'gpt-4o-realtime-preview-2024-10-01'}`,
+        `wss://api.openai.com/v1/realtime?model=${model || 'gpt-realtime-mini'}`,
         ['realtime', `openai-insecure-api-key.${apiKey}`, 'openai-beta.realtime-v1']
       );
       
@@ -263,27 +270,28 @@ export default function LiveInterview({ job, onBack }) {
         console.log("✅ Connected to OpenAI Realtime API");
         setIsConnected(true);
         setIsProcessing(false);
-      
+
         // Send session configuration
         ws.send(JSON.stringify({
           type: "session.update",
           session: {
             modalities: ["text", "audio"],
-            instructions: `You are conducting a live interview for the position of ${job.title} at ${job.company}. 
+            instructions: `You are interviewing for ${job.title} at ${job.company}. Ask exactly 3 concise questions.
 
-CRITICAL RULES:
-1. Ask EXACTLY 5 interview questions - count them carefully
-2. After asking a question, STOP TALKING COMPLETELY and WAIT for the candidate to respond
-3. DO NOT continue speaking after asking a question until the candidate provides a complete answer
-4. DO NOT answer your own questions
-5. DO NOT interrupt the candidate while they are speaking
-6. DO NOT react to background noise or silence - wait for actual speech from the candidate
-7. After the candidate finishes answering, wait 2 seconds of silence, then provide brief positive feedback (1-2 sentences), then ask the next question
-8. Keep questions concise and conversational (2-3 sentences max per question)
-9. Only speak when the candidate has finished speaking and there has been silence
-10. Start with: "Hello! I'm excited to interview you for the ${job.title} position at ${job.company}. Let's begin with the first question."
+START WITH: "Hi! Welcome to PrepMate AI. Let's begin your interview."
 
-Job description: ${job.description.substring(0, 2000)}`,
+CRITICAL:
+- Start with the welcome message above, then ask your first question
+- Questions must be SHORT and DIRECT (1 sentence max, under 15 words)
+- After each question, STOP and wait for answer
+- Do NOT ramble, explain, or add fluff
+- User can interrupt you - stop immediately when they speak
+- Keep internal count of questions asked
+- AFTER asking 3 questions total, say "Thank you for your time. The interview is now complete." and immediately call the end_interview function
+- Example good question: "Tell me about your experience with React."
+- Example bad question: "So, I'd love to hear more about your background and specifically if you could elaborate on your experience working with React and maybe share a project."
+
+Job: ${job.description.substring(0, 1500)}`,
             voice: voiceModel,
             input_audio_format: "pcm16",
             output_audio_format: "pcm16",
@@ -292,22 +300,45 @@ Job description: ${job.description.substring(0, 2000)}`,
             },
             turn_detection: {
               type: "server_vad",
-              threshold: 0.5, // Lower threshold for better speech detection
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500, // Shorter silence duration to allow interruptions
+              threshold: 0.3, // Much lower threshold - detect speech easier
+              prefix_padding_ms: 200, // Less padding - faster response
+              silence_duration_ms: 300, // Shorter silence - stop faster when interrupted
             },
-            temperature: 0.8,
+            temperature: 0.7, // Lower temperature for more focused responses
+            tools: [
+              {
+                type: "function",
+                name: "end_interview",
+                description: "Call this function when the interview is complete (after 3 questions have been asked). This will end the interview session.",
+                parameters: {
+                  type: "object",
+                  strict: true,
+                  properties: {
+                    reason: {
+                      type: "string",
+                      description: "The reason for ending the interview (e.g., '3 questions completed')"
+                    },
+                    questions_asked: {
+                      type: "number",
+                      description: "The number of questions asked during the interview"
+                    }
+                  },
+                  required: ["reason", "questions_asked"]
+                }
+              }
+            ],
+            tool_choice: "auto"
           }
         }));
-            
+
         // Start recording
             startRecording().catch((error) => {
           console.error("Microphone error:", error);
           toast.warning("Microphone access failed. Please grant microphone permissions to continue.");
         });
-        
+
         startAutoEndTimer(timeLimitMs);
-        
+
         // Send initial greeting to start the interview
         setTimeout(() => {
           hasActiveResponseRef.current = true; // Mark that we're creating a response
@@ -336,8 +367,6 @@ Job description: ${job.description.substring(0, 2000)}`,
       };
 
       ws.onclose = (event) => {
-        console.log("WebSocket closed:", event.code, event.reason);
-        
         // Don't show error for normal closures (code 1000) or intentional closures (code 1001)
         // Also don't show error if connection was closed intentionally during endInterview
         if (event.code === 1000 || event.code === 1001) {
@@ -368,6 +397,11 @@ Job description: ${job.description.substring(0, 2000)}`,
 
   const handleRealtimeMessage = (message) => {
     switch (message.type) {
+      case "response.created":
+        // Response is being created - mark as active for interruption handling
+        hasActiveResponseRef.current = true;
+        break;
+
       case "response.audio.delta":
         // Queue audio for playback
         if (message.delta) {
@@ -389,20 +423,34 @@ Job description: ${job.description.substring(0, 2000)}`,
         // Finalize bot transcript
         const botText = message.transcript || currentBotMessageRef.current;
         if (botText && botText.trim()) {
-          // Check if this is a question
-          if (botText.includes("?")) {
+          // Log bot dialogue to console
+          console.log("🤖 Bot:", botText.trim());
+
+          // Count questions - but NOT the welcome message or initial greeting
+          // Only count actual interview questions (containing ? and not just greetings)
+          const trimmedText = botText.trim();
+          const isWelcomeOrGreeting =
+            trimmedText.toLowerCase().includes("welcome") ||
+            trimmedText.toLowerCase().includes("let's begin") ||
+            trimmedText.toLowerCase().includes("let us begin") ||
+            (trimmedText.startsWith("Hi!") && trimmedText.length < 50);
+
+          // Count as question if it has "?" and is NOT a welcome/greeting message
+          if (trimmedText.includes("?") && !isWelcomeOrGreeting) {
             questionCountRef.current += 1;
             setQuestionCount(questionCountRef.current);
-            console.log(`📊 Question ${questionCountRef.current}/5`);
           }
-          
+
           setTranscript(prev => {
-            // Avoid duplicates
+            // Avoid duplicates and sort by timestamp
+            const newEntry = { speaker: "bot", text: trimmedText, timestamp: new Date() };
             const lastEntry = prev[prev.length - 1];
-            if (lastEntry?.speaker === "bot" && lastEntry?.text === botText.trim()) {
+            if (lastEntry?.speaker === "bot" && lastEntry?.text === trimmedText) {
               return prev;
             }
-            return [...prev, { speaker: "bot", text: botText.trim(), timestamp: new Date() }];
+            const newTranscript = [...prev, newEntry];
+            // Sort by timestamp to ensure correct order
+            return newTranscript.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
           });
             }
         currentBotMessageRef.current = "";
@@ -411,40 +459,46 @@ Job description: ${job.description.substring(0, 2000)}`,
       case "conversation.item.input_audio_transcription.completed":
         // User speech transcription
         if (message.transcript && message.transcript.trim()) {
+          console.log("🗣️ User speech detected:", message.transcript);
+          const userText = message.transcript.trim();
           setTranscript(prev => {
-                  const lastEntry = prev[prev.length - 1];
-            if (lastEntry?.speaker === "user" && lastEntry?.text === message.transcript.trim()) {
-                    return prev;
-                  }
-            return [...prev, { speaker: "user", text: message.transcript.trim(), timestamp: new Date() }];
-                });
+            // Avoid duplicates and sort by timestamp
+            const lastEntry = prev[prev.length - 1];
+            if (lastEntry?.speaker === "user" && lastEntry?.text === userText) {
+              return prev;
+            }
+            const newEntry = { speaker: "user", text: userText, timestamp: new Date() };
+            const newTranscript = [...prev, newEntry];
+            // Sort by timestamp to ensure correct order
+            return newTranscript.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+          });
           setIsSpeaking(prev => ({ ...prev, user: false }));
               }
               break;
         
       case "input_audio_buffer.speech_started":
         setIsSpeaking(prev => {
-          // If bot is speaking and there's an active response, cancel it (interruption)
-          if (prev.bot && hasActiveResponseRef.current) {
-            console.log("🛑 User interrupting bot - cancelling bot response and stopping audio");
-            
-            // Stop current audio playback
+          // Always cancel bot response when user starts speaking (aggressive interruption)
+          if (hasActiveResponseRef.current) {
+            console.log("🛑 User started speaking - cancelling bot response");
+
+            // Stop current audio playback immediately
             if (currentAudioSourceRef.current) {
               try {
                 currentAudioSourceRef.current.stop();
                 currentAudioSourceRef.current.disconnect();
                 currentAudioSourceRef.current = null;
               } catch (error) {
-                console.log("Audio already stopped or error stopping:", error);
+                // Audio already stopped or error stopping - ignore
               }
             }
-            
-            // Clear audio queue
+
+            // Clear all queued audio
             audioQueueRef.current = [];
             isPlayingAudioRef.current = false;
-            
-            // Cancel bot's response on server - only if there's an active response
-            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && hasActiveResponseRef.current) {
+
+            // Cancel bot's response on server
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
               try {
                 wsRef.current.send(JSON.stringify({
                   type: "response.cancel",
@@ -453,14 +507,14 @@ Job description: ${job.description.substring(0, 2000)}`,
                 console.error("Error cancelling response:", error);
               }
             }
-            
-            // Update bot speaking state and mark user as speaking
+
+            // Reset all bot speaking states
             botIsSpeakingRef.current = false;
-            currentBotMessageRef.current = ""; // Clear partial message
-            hasActiveResponseRef.current = false; // Mark response as cancelled
-            return { ...prev, user: true, bot: false };
+            currentBotMessageRef.current = "";
+            hasActiveResponseRef.current = false;
           }
-          return { ...prev, user: true };
+
+          return { ...prev, user: true, bot: false };
         });
         break;
         
@@ -470,13 +524,45 @@ Job description: ${job.description.substring(0, 2000)}`,
         
       case "response.cancelled":
         // Bot response was cancelled (user interrupted)
-        console.log("✅ Bot response cancelled due to interruption");
         hasActiveResponseRef.current = false; // No active response anymore
         setIsSpeaking(prev => ({ ...prev, bot: false }));
         currentBotMessageRef.current = ""; // Clear partial message
         break;
         
       case "response.done":
+        hasActiveResponseRef.current = false; // No active response anymore
+        setIsSpeaking(prev => ({ ...prev, bot: false }));
+
+        // Check for function calls in the response output
+        if (message.response?.output) {
+          for (const output of message.response.output) {
+            if (output.type === "function_call" && output.name === "end_interview") {
+              console.log("🔧 Function call received: end_interview", output.arguments);
+              try {
+                const args = JSON.parse(output.arguments);
+                console.log(`📋 Interview ended via function call. Reason: ${args.reason}, Questions asked: ${args.questions_asked}`);
+
+                // Update question count from function call if provided
+                if (args.questions_asked) {
+                  questionCountRef.current = args.questions_asked;
+                  setQuestionCount(args.questions_asked);
+                }
+
+                // Show toast notification
+                toast.info(args.reason || "Interview completed");
+
+                // End the interview after a brief delay to let the final message play
+                setTimeout(() => {
+                  endInterview();
+                }, 1500);
+              } catch (error) {
+                console.error("Error parsing function call arguments:", error);
+              }
+            }
+          }
+        }
+        break;
+
       case "response.content_part.done":
         hasActiveResponseRef.current = false; // No active response anymore
         setIsSpeaking(prev => ({ ...prev, bot: false }));
@@ -486,19 +572,17 @@ Job description: ${job.description.substring(0, 2000)}`,
         // Handle specific error codes silently
         if (message.error?.code === "response_cancel_not_active") {
           // This is expected - user tried to interrupt but no active response
-          // Just log and continue, don't show error
-          console.log("ℹ️ No active response to cancel (already finished or not started)");
           hasActiveResponseRef.current = false;
           return;
         }
-        
+
         // Log full error details for debugging other errors
         console.error("Realtime API error - Full message:", JSON.stringify(message, null, 2));
         console.error("Realtime API error - Error object:", message.error);
-        
+
         // Handle various error formats
         let errorMessage = 'Unknown error occurred';
-        
+
         if (message.error) {
           if (typeof message.error === 'string') {
             errorMessage = message.error;
@@ -512,7 +596,7 @@ Job description: ${job.description.substring(0, 2000)}`,
             errorMessage = JSON.stringify(message.error);
           }
         }
-        
+
         // Only show toast for non-empty errors to avoid spam
         if (errorMessage !== 'Unknown error occurred' || Object.keys(message.error || {}).length > 0) {
           toast.error(`API Error: ${errorMessage}`);
@@ -521,63 +605,104 @@ Job description: ${job.description.substring(0, 2000)}`,
           console.warn("Empty error object received - ignoring");
         }
         break;
+
+      default:
+        // Ignore unhandled message types
+        break;
     }
   };
 
   const startRecording = async () => {
     try {
+      // Get audio at browser's native sample rate
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 24000,
         },
       });
-      
+
       mediaStreamRef.current = stream;
-      
-      // Create audio context for recording
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: 24000,
-      });
-      
+
+      // Create a separate audio context for recording at browser's native rate
+      if (!recordingAudioContextRef.current || recordingAudioContextRef.current.state === 'closed') {
+        recordingAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      const audioContext = recordingAudioContextRef.current;
       const source = audioContext.createMediaStreamSource(stream);
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      
+
+      const TARGET_SAMPLE_RATE = 24000;
+      const sourceSampleRate = audioContext.sampleRate;
+      const sampleRateRatio = TARGET_SAMPLE_RATE / sourceSampleRate;
+
+      let audioSendCount = 0;
       processor.onaudioprocess = (e) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-        
-        // Allow interruptions - don't block input when bot is speaking
-        // OpenAI's VAD will handle turn-taking properly
-        
-          const inputData = e.inputBuffer.getChannelData(0);
-          
-        // Send ALL audio to OpenAI - let their VAD handle noise filtering
-        // This ensures your voice is always captured and interruptions work
-          // Convert to PCM16
-        const pcm16 = new Int16Array(inputData.length);
-        for (let i = 0; i < inputData.length; i++) {
-          const s = Math.max(-1, Math.min(1, inputData[i]));
-            pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+
+        const inputData = e.inputBuffer.getChannelData(0);
+
+        // Log first audio chunk for debugging
+        if (audioSendCount === 0) {
+          console.log("🎤 Audio capture started - sample rate:", sourceSampleRate, "Hz -> target:", TARGET_SAMPLE_RATE, "Hz");
+        }
+        audioSendCount++;
+
+        // Resample to 24kHz if needed
+        let resampledData;
+        if (sourceSampleRate === TARGET_SAMPLE_RATE) {
+          resampledData = inputData;
+        } else {
+          // Simple linear interpolation resampling
+          const outputLength = Math.round(inputData.length * sampleRateRatio);
+          resampledData = new Float32Array(outputLength);
+          for (let i = 0; i < outputLength; i++) {
+            const srcIndex = i / sampleRateRatio;
+            const index = Math.floor(srcIndex);
+            const fraction = srcIndex - index;
+            if (index + 1 < inputData.length) {
+              resampledData[i] = inputData[index] * (1 - fraction) + inputData[index + 1] * fraction;
+            } else {
+              resampledData[i] = inputData[index] || 0;
+            }
           }
-          
-          // Convert to base64
-          const bytes = new Uint8Array(pcm16.buffer);
-          const base64Audio = btoa(String.fromCharCode.apply(null, Array.from(bytes)));
-          
-        // Send to OpenAI - always send audio, let OpenAI handle VAD
-        wsRef.current.send(JSON.stringify({
-          type: "input_audio_buffer.append",
-          audio: base64Audio,
-        }));
+        }
+
+        // Convert to PCM16
+        const pcm16 = new Int16Array(resampledData.length);
+        for (let i = 0; i < resampledData.length; i++) {
+          const s = Math.max(-1, Math.min(1, resampledData[i]));
+          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+
+        // Convert to base64 - use chunked encoding for large arrays
+        const bytes = new Uint8Array(pcm16.buffer);
+        let binary = '';
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i += 8192) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, len)));
+        }
+        const base64Audio = btoa(binary);
+
+        // Send to OpenAI
+        try {
+          wsRef.current.send(JSON.stringify({
+            type: "input_audio_buffer.append",
+            audio: base64Audio,
+          }));
+        } catch (error) {
+          console.error("Error sending audio data:", error);
+        }
       };
-      
+
       audioProcessorRef.current = processor;
-      
+
+      // Only connect source to processor - DO NOT connect processor to destination
+      // (that would create a feedback loop and cause audio issues)
       source.connect(processor);
-      processor.connect(audioContext.destination);
-      
+
       setIsRecording(true);
       
     } catch (error) {
@@ -630,7 +755,7 @@ Job description: ${job.description.substring(0, 2000)}`,
           <div className="text-center space-y-4">
             <p className="text-muted-foreground">
               Click start to begin a live conversational interview with the AI bot.
-              The interview will automatically end after 5 questions or {interviewTimeLimit} seconds, whichever comes first.
+              The interview will automatically end after 3 questions or {interviewTimeLimit} seconds, whichever comes first.
             </p>
             {connectionError && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-sm text-destructive">
@@ -675,7 +800,7 @@ Job description: ${job.description.substring(0, 2000)}`,
                 )}
               </div>
               <div className="text-sm text-muted-foreground">
-                Question {questionCount}/5
+                Question {questionCount}/3
               </div>
             </div>
 

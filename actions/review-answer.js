@@ -1,13 +1,13 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || "gemini-2.0-flash" });
+const openai = new OpenAI();
+const modelName = process.env.OPENAI_MODEL || "gpt-5-nano";
 
 /**
- * Review a theory-based answer using Gemini
+ * Review a theory-based answer using OpenAI
  * @param {string} question - The theory question
  * @param {string} answer - The user's answer
  * @param {string} jobTitle - The job title for context
@@ -54,10 +54,12 @@ export async function reviewTheoryAnswer(question, answer, jobTitle, jobDescript
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
-    
+    const response = await openai.responses.create({
+      model: modelName,
+      input: prompt
+    });
+    const text = response.output_text;
+
     if (!text) {
       throw new Error("Empty response from AI");
     }
