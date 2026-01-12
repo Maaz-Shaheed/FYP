@@ -2,6 +2,7 @@
 
 openai-realtime-console/
 openai-realtime-console
+.openai-realtime-console
 
 # dependencies
 /node_modules
